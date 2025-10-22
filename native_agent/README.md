@@ -124,6 +124,72 @@ curl -X POST http://localhost:8000/rewrite \
 - If Python complains about missing packages, re-run `pip install -r requirements.txt` while
   the virtual environment is active.
 
+## 在 Google Colab 上运行（Run on Google Colab）
+
+如果你更习惯在浏览器里使用 [Google Colab](https://colab.research.google.com/)，
+可以按照下面的步骤一步一步运行 ETH 分析命令。所有命令都在单独的
+Notebook 单元格里执行，复制后按 `Shift+Enter` 运行即可。
+
+1. **连接到 Colab 运行时并克隆代码仓库**
+
+   > 将 `YOUR_GITHUB_USERNAME` 换成你自己的 GitHub 用户名，或者直接填入
+   > 你想要克隆的仓库地址。
+
+   ```python
+   !git clone https://github.com/YOUR_GITHUB_USERNAME/AI-ConversBot.git
+   %cd AI-ConversBot/native_agent
+   ```
+
+2. **安装依赖**（Colab 自带 Python 环境，无需创建虚拟环境）
+
+   ```python
+   !pip install -r requirements.txt
+   ```
+
+3. **安全地设置 OpenAI Key**
+
+   Colab 支持在左侧的 **🔑 Secrets** 面板里存储机密信息。如果无法使用
+   Secrets，也可以直接在单元格里设置环境变量，但请勿分享含有秘钥的
+   Notebook。
+
+   **方式 A：使用 Colab Secrets（推荐）**
+
+   1. 左侧工具栏点击齿轮图标 → `Secrets`，新增一条名为 `OPENAI_API_KEY` 的
+      secret，并粘贴你的 API Key。
+   2. 在 Notebook 中运行：
+
+      ```python
+      from google.colab import userdata
+      import os
+
+      os.environ["OPENAI_API_KEY"] = userdata.get("OPENAI_API_KEY")
+      os.environ.setdefault("OPENAI_MODEL", "gpt-4o-mini")
+      ```
+
+   **方式 B：直接在代码里设置（仅限个人笔记本）**
+
+   ```python
+   import os
+
+   os.environ["OPENAI_API_KEY"] = "sk-..."  # 用你的真实 Key 替换
+   os.environ.setdefault("OPENAI_MODEL", "gpt-4o-mini")
+   ```
+
+4. **运行 ETH 分析命令**
+
+   ```python
+   !python -m native_agent.cli analyze-eth
+   ```
+
+   你会看到实时的价格、涨跌幅以及 AI 生成的文字分析。若 Notebook 断开
+   或重连，请重新运行上述所有单元格。
+
+5. **（可选）调用文本改写功能**
+
+   ```python
+   !python -m native_agent.cli rewrite "I wanna build up an AI agent" --style professional
+   ```
+
 ## Structure
 - `providers/`: LLM provider adapters
 - `pipeline/`: orchestration, prompts, rules
