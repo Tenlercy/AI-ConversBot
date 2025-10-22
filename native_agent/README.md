@@ -12,8 +12,16 @@ An AI agent framework to rewrite user messages into native, natural English whil
 ## Quickstart
 1. Copy `.env.example` to `.env` and fill in your provider keys
 2. Install dependencies: `pip install -r requirements.txt`
-3. Run API: `uvicorn native_agent.server.api:app --reload`
-4. Try cURL:
+3. (Optional) Run API: `uvicorn native_agent.server.api:app --reload`
+4. Run from the CLI:
+   ```bash
+   # Rewrite text
+   python -m native_agent.cli rewrite "I wanna build up an AI agent" --style professional
+
+   # Analyse live ETH market data (requires `OPENAI_API_KEY` in your environment)
+   python -m native_agent.cli analyze-eth
+   ```
+5. Test the HTTP API with cURL:
    ```bash
    curl -X POST http://localhost:8000/rewrite -H 'Content-Type: application/json' -d '{"text":"I wanna build up an AI agent", "style":"professional"}'
    ```
