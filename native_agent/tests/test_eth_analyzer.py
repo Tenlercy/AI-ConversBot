@@ -36,6 +36,16 @@ class DummyProvider(LLMProvider):
         return "ETH is showing steady upward momentum with modest volatility."
 
 
+class RateLimitedProvider(LLMProvider):
+    class _QuotaError(Exception):
+        def __init__(self) -> None:
+            super().__init__("RateLimitError: insufficient_quota")
+            self.status_code = 429
+
+    def generate(self, system_prompt: str, user_prompt: str, *, config: GenerationConfig) -> str:
+        raise self._QuotaError()
+
+
 def test_eth_price_analyzer_returns_metrics_and_summary():
     analyzer = ETHPriceAnalyzer(provider=DummyProvider(), model="dummy", data_source=StubDataSource())
     result = analyzer.analyze()
@@ -60,3 +70,19 @@ def test_generate_summary_uses_recent_points():
     assert call["config"].model == "dummy"
     # Ensure the user prompt references ISO formatted timestamps from the recent window
     assert call["user_prompt"].count("UTC") >= 1
+
+
+def test_analyzer_returns_offline_summary_when_provider_disabled():
+    analyzer = ETHPriceAnalyzer(provider=None, model="dummy", data_source=StubDataSource())
+    result = analyzer.analyze()
+
+    assert "Offline summary enabled" in result.summary
+    assert "Spot price" in result.summary
+
+
+def test_analyzer_recovers_from_rate_limit_error():
+    analyzer = ETHPriceAnalyzer(provider=RateLimitedProvider(), model="dummy", data_source=StubDataSource())
+    result = analyzer.analyze()
+
+    assert "OpenAI quota or rate limit" in result.summary
+    assert "insufficient_quota" in result.summary

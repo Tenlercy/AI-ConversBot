@@ -32,11 +32,18 @@ def rewrite(
 
 
 @app.command(name="analyze-eth")
-def analyze_eth(model: Optional[str] = typer.Option(None, help="Model name override")):
+def analyze_eth(
+    model: Optional[str] = typer.Option(None, help="Model name override"),
+    offline: bool = typer.Option(
+        False,
+        "--offline",
+        help="Skip LLM calls and show a locally generated summary (useful in Google Colab or without quota)",
+    ),
+):
     """Analyse recent ETH price movements using live market data."""
 
     load_dotenv()
-    provider = OpenAIProvider()
+    provider = None if offline else OpenAIProvider()
     model_name = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     analyzer = ETHPriceAnalyzer(provider=provider, model=model_name)
     result = analyzer.analyze()

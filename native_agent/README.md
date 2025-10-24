@@ -78,6 +78,13 @@ OPENAI_MODEL=gpt-4o-mini   # optional: change if you prefer another model
 python -m native_agent.cli analyze-eth
 ```
 
+Add `--offline` if you only want the locally generated summary (for example when your
+OpenAI account shows **RateLimitError: insufficient_quota**):
+
+```bash
+python -m native_agent.cli analyze-eth --offline
+```
+
 The command fetches the latest Ethereum (ETH) market data, computes hourly and daily
 changes, and prints a natural-language explanation. Example output:
 
@@ -183,6 +190,15 @@ Notebook 单元格里执行，复制后按 `Shift+Enter` 运行即可。
 
    你会看到实时的价格、涨跌幅以及 AI 生成的文字分析。若 Notebook 断开
    或重连，请重新运行上述所有单元格。
+
+   > 如果出现 `RateLimitError: ... insufficient_quota`，说明当前 OpenAI 账号
+   > 没有可用额度。可以在 Colab 中改用纯本地模式：
+
+   ```python
+   !python -m native_agent.cli analyze-eth --offline
+   ```
+
+   本地模式仍会输出关键指标，并提示如何在补充额度后重新启用 AI 解读。
 
 5. **（可选）调用文本改写功能**
 

@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Iterable, List, Optional, Protocol, Sequence
 
+try:  # pragma: no cover - optional dependency guard
+    from openai import RateLimitError  # type: ignore
+except Exception:  # pragma: no cover - we only need the type when available
+    RateLimitError = None  # type: ignore[assignment]
+
 import httpx
 
 from ..providers.base import GenerationConfig, LLMProvider
@@ -94,7 +99,7 @@ class ETHPriceAnalyzer:
 
     def __init__(
         self,
-        provider: LLMProvider,
+        provider: Optional[LLMProvider],
         *,
         model: str = "gpt-4o-mini",
         data_source: Optional[ETHMarketDataSource] = None,
@@ -125,10 +130,23 @@ class ETHPriceAnalyzer:
             low_24h=low,
         )
 
-        summary = self._generate_summary(metrics, recent_points=points[-6:])
+        summary = self._build_summary(metrics, recent_points=points[-6:])
         return ETHAnalysisResult(metrics=metrics, summary=summary)
 
-    def _generate_summary(self, metrics: ETHPriceMetrics, *, recent_points: Sequence[PricePoint]) -> str:
+    def _build_summary(
+        self,
+        metrics: ETHPriceMetrics,
+        *,
+        recent_points: Sequence[PricePoint],
+    ) -> str:
+        if self._provider is None:
+            return self._build_fallback_summary(
+                metrics,
+                recent_points=recent_points,
+                reason="offline",
+                error_message="LLM provider disabled",
+            )
+
         price_lines = "\n".join(
             f"- {point.timestamp.isoformat()} UTC: ${point.price:,.2f}" for point in recent_points
         )
@@ -149,14 +167,85 @@ class ETHPriceAnalyzer:
             "Explain momentum, volatility, and notable support/resistance zones."
         )
 
-        return self._provider.generate(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            config=GenerationConfig(model=self._model, temperature=0.3, max_tokens=400),
-        )
+        try:
+            return self._provider.generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                config=GenerationConfig(model=self._model, temperature=0.3, max_tokens=400),
+            )
+        except Exception as exc:  # pragma: no cover - exercised in specific tests
+            if self._is_rate_limit_error(exc):
+                return self._build_fallback_summary(
+                    metrics,
+                    recent_points=recent_points,
+                    reason="rate_limit",
+                    error_message=str(exc),
+                )
+            raise
 
     @staticmethod
     def _calculate_change(old_price: float, new_price: float) -> float:
         if old_price == 0:
             return 0.0
         return (new_price - old_price) / old_price * 100
+
+    @staticmethod
+    def _is_rate_limit_error(error: Exception) -> bool:
+        if RateLimitError is not None and isinstance(error, RateLimitError):
+            return True
+        status_code = getattr(error, "status_code", None)
+        if status_code == 429:
+            return True
+        message = str(error).lower()
+        return "insufficient_quota" in message or "rate limit" in message
+
+    def _build_fallback_summary(
+        self,
+        metrics: ETHPriceMetrics,
+        *,
+        recent_points: Sequence[PricePoint],
+        reason: str,
+        error_message: str,
+    ) -> str:
+        direction_hour = "up" if metrics.hourly_change_pct >= 0 else "down"
+        direction_day = "higher" if metrics.daily_change_pct >= 0 else "lower"
+        hourly_pct = abs(metrics.hourly_change_pct)
+        daily_pct = abs(metrics.daily_change_pct)
+        range_width = metrics.high_24h - metrics.low_24h
+        range_pct = (range_width / metrics.low_24h * 100) if metrics.low_24h else 0.0
+
+        if reason == "offline":
+            headline = "Offline summary enabled — no OpenAI calls were made."
+        else:
+            headline = (
+                "⚠️ OpenAI quota or rate limit was reached. Showing a locally generated summary instead."
+            )
+
+        advisory = (
+            "在 Google Colab 上如果看到 429 insufficient_quota，请确保你的 OpenAI 账户有额度"
+            "，或者使用 `python -m native_agent.cli analyze-eth --offline` 运行纯本地模式。"
+        )
+
+        recent_section = "\n".join(
+            f"- {point.timestamp.isoformat()} UTC: ${point.price:,.2f}" for point in recent_points
+        )
+
+        lines = [
+            headline,
+            advisory,
+            "",
+            "Key stats:",
+            f"- Spot price: ${metrics.current_price:,.2f}",
+            f"- 1h momentum: {direction_hour} {hourly_pct:.2f}%",
+            f"- 24h trend: {direction_day} by {daily_pct:.2f}%",
+            f"- Day range: ${metrics.low_24h:,.2f} → ${metrics.high_24h:,.2f} ({range_pct:.2f}% span)",
+            "",
+            "Recent datapoints:",
+            recent_section,
+        ]
+
+        if error_message:
+            lines.append("")
+            lines.append(f"Debug: {error_message}")
+
+        return "\n".join(lines)
