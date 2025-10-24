@@ -131,6 +131,61 @@ curl -X POST http://localhost:8000/rewrite \
 - If Python complains about missing packages, re-run `pip install -r requirements.txt` while
   the virtual environment is active.
 
+## 在 VS Code 中运行（Run in Visual Studio Code）
+
+如果你习惯用 [Visual Studio Code](https://code.visualstudio.com/) 开发或运行脚本，
+可以按照下面的步骤完成环境配置并执行 ETH 分析命令：
+
+1. **安装 VS Code 与 Python 插件**
+   - 下载并安装 VS Code。
+   - 打开 VS Code 后，进入左侧的扩展（Extensions）面板，搜索并安装官方
+     “Python” 插件。
+
+2. **打开项目文件夹**
+   - 启动 VS Code，点击 `File → Open Folder...`。
+   - 选择你下载好的 `AI-ConversBot/native_agent` 文件夹并确认。
+
+3. **打开集成终端**
+   - 在 VS Code 顶部菜单选择 `Terminal → New Terminal`，或使用快捷键
+     ``Ctrl+` ``（macOS 为 ``Cmd+` ``）。
+   - 新终端会自动定位到 `native_agent` 目录，如果不是，请在终端运行
+     `cd native_agent`。
+
+4. **创建并激活虚拟环境**
+   - 在终端依次运行：
+
+     ```bash
+     python -m venv .venv
+     ```
+
+   - 激活环境（Windows: `.venv\Scripts\activate`，macOS/Linux: `source .venv/bin/activate`）。
+     激活后，终端前缀会出现 `(.venv)`。
+
+5. **安装依赖并配置 `.env`**
+   - 执行 `pip install -r requirements.txt` 安装依赖。
+   - 运行 `cp .env.example .env`，然后在 VS Code 左侧的资源管理器中双击 `.env`
+     文件，填入你的 `OPENAI_API_KEY`。
+
+6. **运行 ETH 分析命令**
+   - 在同一个终端里执行：
+
+     ```bash
+     python -m native_agent.cli analyze-eth
+     ```
+
+   - 如果你暂时没有 OpenAI 配额，可加上 `--offline` 参数获取本地分析结果：
+
+     ```bash
+     python -m native_agent.cli analyze-eth --offline
+     ```
+
+7. **（可选）使用 VS Code 任务栏运行**
+   - 你也可以在 VS Code 左上角点击 “Run and Debug”，选择 “Python File”，然后
+     在弹出的命令面板中输入 `python -m native_agent.cli analyze-eth` 直接运行。
+
+完成以上步骤后，任何时候都可以重新打开 VS Code，激活终端中的虚拟环境，
+再次运行命令获取最新的 ETH 市场分析。
+
 ## 在 Google Colab 上运行（Run on Google Colab）
 
 如果你更习惯在浏览器里使用 [Google Colab](https://colab.research.google.com/)，
